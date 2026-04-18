@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { createAuthClient } from "@/lib/supabase";
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const sessionData = await getSession();
 
-    if (!session) {
+    if (!sessionData || !sessionData.accessToken) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       );
     }
 
-    const portfolio = await db.getPortfolioByUserId(session.userId);
+    // Create an authenticated client for the GET request (satisfies SELECT RLS)
+    const authClient = createAuthClient(sessionData.accessToken);
+    const portfolio = await db.getPortfolioByUserId(sessionData.userId, authClient);
 
     return NextResponse.json({ portfolio });
   } catch (error) {
@@ -27,9 +30,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
+    const sessionData = await getSession();
 
-    if (!session) {
+    if (!sessionData || !sessionData.accessToken) {
       return NextResponse.json(
         { error: "Not authenticated. Please log in again." },
         { status: 401 }
@@ -48,28 +51,32 @@ export async function POST(request: NextRequest) {
     const finalAmount = parseFloat(amount) || 0;
     const finalPurchasePrice = parseFloat(purchasePrice) || 0;
 
+    // Create an authenticated client for the POST request (satisfies INSERT RLS)
+    const authClient = createAuthClient(sessionData.accessToken);
+
     // 1. Add/Update portfolio item in portfolio_assets table
     const item = await db.addPortfolioItem(
-      session.userId,
+      sessionData.userId,
       coinId,
       coinName,
       coinSymbol,
       finalAmount,
-      finalPurchasePrice
+      finalPurchasePrice,
+      authClient
     );
 
     // 2. Add transaction record
     try {
       await db.addTransaction(
-        session.userId,
+        sessionData.userId,
         coinId,
         coinName,
         "buy",
         finalAmount,
-        finalPurchasePrice
+        finalPurchasePrice,
+        authClient
       );
     } catch (transError) {
-      // We log but don't fail the whole request if the transaction log fails
       console.error("Failed to log transaction:", transError);
     }
 
@@ -81,9 +88,15 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Portfolio add error (API Route):", error);
     
-    // Provide a more descriptive error if possible
+    // Check if it's an RLS error from Supabase
+    if (error.code === "42501" || error.message?.includes("row-level security")) {
+      return NextResponse.json(
+        { error: "Security policy violation. You are only allowed to manage your own data." },
+        { status: 403 }
+      );
+    }
+
     const errorMessage = error.message || "An unexpected error occurred while adding the asset";
-    
     return NextResponse.json(
       { error: errorMessage },
       { status: 500 }

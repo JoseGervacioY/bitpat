@@ -1,4 +1,5 @@
-import { supabase } from "./supabase";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabase as defaultSupabase } from "./supabase";
 
 export interface User {
   id: string;
@@ -32,9 +33,16 @@ export interface Transaction {
 }
 
 class Database {
+  /**
+   * Helper to use a provided authenticated client or the default one.
+   */
+  private getClient(client?: SupabaseClient) {
+    return client || defaultSupabase;
+  }
+
   // User methods
   async findUserByEmail(email: string): Promise<User | undefined> {
-    const { data, error } = await supabase
+    const { data, error } = await defaultSupabase
       .from("profiles")
       .select("*")
       .eq("email", email.toLowerCase())
@@ -45,7 +53,7 @@ class Database {
   }
 
   async findUserById(id: string): Promise<User | undefined> {
-    const { data, error } = await supabase
+    const { data, error } = await defaultSupabase
       .from("profiles")
       .select("*")
       .eq("id", id)
@@ -55,9 +63,9 @@ class Database {
     return data as User;
   }
 
-  // Portfolio methods (Updated to use portfolio_assets)
-  async getPortfolioByUserId(userId: string): Promise<PortfolioItem[]> {
-    const { data, error } = await supabase
+  // Portfolio methods
+  async getPortfolioByUserId(userId: string, authClient?: SupabaseClient): Promise<PortfolioItem[]> {
+    const { data, error } = await this.getClient(authClient)
       .from("portfolio_assets")
       .select("*")
       .eq("user_id", userId);
@@ -75,10 +83,13 @@ class Database {
     coinName: string, 
     coinSymbol: string,
     amount: number, 
-    purchasePrice: number
+    purchasePrice: number,
+    authClient?: SupabaseClient
   ): Promise<PortfolioItem> {
+    const client = this.getClient(authClient);
+
     // Check if user already has this coin
-    const { data: existing } = await supabase
+    const { data: existing } = await client
       .from("portfolio_assets")
       .select("*")
       .eq("user_id", userId)
@@ -89,7 +100,7 @@ class Database {
       const totalAmount = Number(existing.amount) + amount;
       const avgPrice = ((Number(existing.amount) * Number(existing.purchase_price)) + (amount * purchasePrice)) / totalAmount;
       
-      const { data: updated, error } = await supabase
+      const { data: updated, error } = await client
         .from("portfolio_assets")
         .update({
           amount: totalAmount,
@@ -107,7 +118,7 @@ class Database {
       return updated as PortfolioItem;
     }
 
-    const { data: inserted, error } = await supabase
+    const { data: inserted, error } = await client
       .from("portfolio_assets")
       .insert([
         {
@@ -129,8 +140,8 @@ class Database {
     return inserted as PortfolioItem;
   }
 
-  async updatePortfolioItem(id: string, userId: string, amount: number, purchasePrice: number): Promise<PortfolioItem | null> {
-    const { data, error } = await supabase
+  async updatePortfolioItem(id: string, userId: string, amount: number, purchasePrice: number, authClient?: SupabaseClient): Promise<PortfolioItem | null> {
+    const { data, error } = await this.getClient(authClient)
       .from("portfolio_assets")
       .update({
         amount,
@@ -149,8 +160,8 @@ class Database {
     return data as PortfolioItem;
   }
 
-  async deletePortfolioItem(id: string, userId: string): Promise<boolean> {
-    const { error } = await supabase
+  async deletePortfolioItem(id: string, userId: string, authClient?: SupabaseClient): Promise<boolean> {
+    const { error } = await this.getClient(authClient)
       .from("portfolio_assets")
       .delete()
       .eq("id", id)
@@ -163,8 +174,8 @@ class Database {
   }
 
   // Transaction methods
-  async getTransactionsByUserId(userId: string, limit?: number): Promise<Transaction[]> {
-    let query = supabase
+  async getTransactionsByUserId(userId: string, limit?: number, authClient?: SupabaseClient): Promise<Transaction[]> {
+    let query = this.getClient(authClient)
       .from("transactions")
       .select("*")
       .eq("user_id", userId)
@@ -188,10 +199,11 @@ class Database {
     coinName: string,
     type: "buy" | "sell",
     amount: number,
-    price: number
+    price: number,
+    authClient?: SupabaseClient
   ): Promise<Transaction> {
     const totalValue = amount * price;
-    const { data, error } = await supabase
+    const { data, error } = await this.getClient(authClient)
       .from("transactions")
       .insert([
         {
