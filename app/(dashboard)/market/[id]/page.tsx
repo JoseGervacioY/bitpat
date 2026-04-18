@@ -537,6 +537,7 @@ export default function CoinDetailPage({
         coin={{
           id: coinData.id,
           name: coinData.name,
+          symbol: coinData.symbol,
           currentPrice: coinData.market_data.current_price.usd,
         }}
       />

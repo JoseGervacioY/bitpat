@@ -23,6 +23,7 @@ interface AddToPortfolioDialogProps {
   coin: {
     id: string;
     name: string;
+    symbol: string;
     currentPrice: number;
   };
   onSuccess?: () => void;
@@ -43,16 +44,21 @@ export function AddToPortfolioDialog({
     e.preventDefault();
     setIsLoading(true);
 
+    const payload = {
+      coinId: coin.id || "",
+      coinName: coin.name || "",
+      coinSymbol: (coin.symbol || "").toUpperCase(),
+      amount: Number(amount) || 0,
+      purchasePrice: Number(purchasePrice) || 0,
+    };
+
+    console.log("DEBUG - Sending payload:", payload);
+
     try {
       const res = await fetch("/api/portfolio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          coinId: coin.id,
-          coinName: coin.name,
-          amount: parseFloat(amount),
-          purchasePrice: parseFloat(purchasePrice),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
