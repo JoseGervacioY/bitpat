@@ -38,12 +38,15 @@ export async function POST(request: NextRequest) {
 
     const { coinId, coinName, coinSymbol, amount, purchasePrice } = await request.json();
 
-    if (!coinId || !coinName || !coinSymbol || !amount || !purchasePrice) {
+    if (!coinId || !coinName || !coinSymbol || amount === undefined || amount === null) {
       return NextResponse.json(
-        { error: "All fields are required (coinId, coinName, coinSymbol, amount, purchasePrice)" },
+        { error: "Missing required fields (coinId, coinName, coinSymbol, amount)" },
         { status: 400 }
       );
     }
+
+    const finalAmount = parseFloat(amount) || 0;
+    const finalPurchasePrice = parseFloat(purchasePrice) || 0;
 
     // 1. Add/Update portfolio item in portfolio_assets table
     const item = await db.addPortfolioItem(
@@ -51,8 +54,8 @@ export async function POST(request: NextRequest) {
       coinId,
       coinName,
       coinSymbol,
-      parseFloat(amount),
-      parseFloat(purchasePrice)
+      finalAmount,
+      finalPurchasePrice
     );
 
     // 2. Add transaction record
@@ -62,8 +65,8 @@ export async function POST(request: NextRequest) {
         coinId,
         coinName,
         "buy",
-        parseFloat(amount),
-        parseFloat(purchasePrice)
+        finalAmount,
+        finalPurchasePrice
       );
     } catch (transError) {
       // We log but don't fail the whole request if the transaction log fails

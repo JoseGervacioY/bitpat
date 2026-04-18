@@ -101,16 +101,21 @@ export function AddCoinDialog({ open, onOpenChange, onSuccess }: AddCoinDialogPr
 
     setIsLoading(true);
 
+    const payload = {
+      coinId: selectedCoin.id,
+      coinName: selectedCoin.name,
+      coinSymbol: selectedCoin.symbol,
+      amount: Number(amount),
+      purchasePrice: Number(purchasePrice),
+    };
+
+    console.log("Sending portfolio data:", payload);
+
     try {
       const res = await fetch("/api/portfolio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          coinId: selectedCoin.id,
-          coinName: selectedCoin.name,
-          amount: parseFloat(amount),
-          purchasePrice: parseFloat(purchasePrice),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
