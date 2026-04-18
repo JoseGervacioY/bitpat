@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { verifyPassword } from "@/lib/auth/password";
+import { supabase } from "@/lib/supabase";
 import { createSession } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
@@ -14,36 +13,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await db.findUserByEmail(email);
+    // 1. Sign in with Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    if (!user) {
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
+    if (!data.user) {
       return NextResponse.json(
-        { error: "Invalid email or password" },
+        { error: "Invalid login credentials" },
         { status: 401 }
       );
     }
 
-    const isValid = await verifyPassword(password, user.password);
+    // 2. Get user name from profiles table
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", data.user.id)
+      .single();
 
-    if (!isValid) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      );
-    }
+    const name = profile?.name || data.user.user_metadata?.full_name || "User";
 
+    // 3. Create local session
     await createSession({
-      userId: user.id,
-      email: user.email,
-      name: user.name,
+      userId: data.user.id,
+      email: data.user.email!,
+      name: name,
     });
 
     return NextResponse.json({
       success: true,
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
+        id: data.user.id,
+        name: name,
+        email: data.user.email,
       },
     });
   } catch (error) {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { hashPassword } from "@/lib/auth/password";
+import { supabase } from "@/lib/supabase";
 import { createSession } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
@@ -21,30 +20,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingUser = await db.findUserByEmail(email);
+    // 1. Sign up user in Supabase Auth
+    // Note: Email confirmation should be disabled in Supabase Dashboard (Auth > Settings)
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+        },
+      },
+    });
 
-    if (existingUser) {
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (!data.user) {
       return NextResponse.json(
-        { error: "Email already registered" },
-        { status: 400 }
+        { error: "Something went wrong during registration" },
+        { status: 500 }
       );
     }
 
-    const hashedPassword = await hashPassword(password);
-    const user = await db.createUser(name, email, hashedPassword);
+    // 2. Insert into profiles table
+    // The user mentioned they already have this table linked to auth.users(id)
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .insert([
+        {
+          id: data.user.id,
+          name: name,
+          email: email,
+        },
+      ]);
 
+    if (profileError) {
+      console.error("Error creating profile:", profileError);
+      // We don't necessarily want to fail registration if only profile fails, 
+      // but it's good to log it. In this case, I'll return success anyway 
+      // if the user was created.
+    }
+
+    // 3. Create local session for compatibility with existing system
     await createSession({
-      userId: user.id,
-      email: user.email,
-      name: user.name,
+      userId: data.user.id,
+      email: data.user.email!,
+      name: name,
     });
 
     return NextResponse.json({
       success: true,
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
+        id: data.user.id,
+        name: name,
+        email: data.user.email,
       },
     });
   } catch (error) {

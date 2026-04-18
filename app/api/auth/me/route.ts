@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { db } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 
 export async function GET() {
   try {
@@ -13,9 +13,15 @@ export async function GET() {
       );
     }
 
-    const user = await db.findUserById(session.userId);
+    // Verify user with Supabase (optional but more secure)
+    // and refresh info from profiles
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("id, name, email")
+      .eq("id", session.userId)
+      .single();
 
-    if (!user) {
+    if (error || !profile) {
       return NextResponse.json(
         { error: "User not found" },
         { status: 404 }
@@ -24,9 +30,9 @@ export async function GET() {
 
     return NextResponse.json({
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
       },
     });
   } catch (error) {

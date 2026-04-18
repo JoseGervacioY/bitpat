@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 const SESSION_COOKIE = "bitpat-session";
 
 export interface SessionData {
-  userId: number;
+  userId: string;
   email: string;
   name: string;
 }

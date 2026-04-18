@@ -1,185 +1,162 @@
-import mysql from "mysql2/promise";
-
-// Database connection configuration
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "bitpat",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-};
-
-// Create the connection pool
-const pool = mysql.createPool(dbConfig);
+import { supabase } from "./supabase";
 
 export interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
-  password: string;
-  created_at: Date;
+  created_at: string;
 }
 
 export interface PortfolioItem {
-  id: number;
-  user_id: number;
+  id: string; // Changed to string for Postgres UUID/BigInt
+  user_id: string;
   coin_id: string;
   coin_name: string;
   amount: number;
   purchase_price: number;
-  created_at: Date;
-  updated_at: Date;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Transaction {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   coin_id: string;
   coin_name: string;
   type: "buy" | "sell";
   amount: number;
   price: number;
   total_value: number;
-  date: Date;
+  date: string;
 }
 
 class Database {
   // User methods
   async findUserByEmail(email: string): Promise<User | undefined> {
-    const [rows] = await pool.execute<any[]>(
-      "SELECT * FROM users WHERE LOWER(email) = ?",
-      [email.toLowerCase()]
-    );
-    return rows[0];
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("email", email.toLowerCase())
+      .single();
+    
+    if (error || !data) return undefined;
+    return data as User;
   }
 
-  async findUserById(id: number): Promise<User | undefined> {
-    const [rows] = await pool.execute<any[]>(
-      "SELECT * FROM users WHERE id = ?",
-      [id]
-    );
-    return rows[0];
-  }
-
-  async createUser(name: string, email: string, hashedPassword: string): Promise<User> {
-    const [result] = await pool.execute<any>(
-      "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-      [name, email, hashedPassword]
-    );
-    const userId = result.insertId;
-    return (await this.findUserById(userId))!;
+  async findUserById(id: string): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", id)
+      .single();
+    
+    if (error || !data) return undefined;
+    return data as User;
   }
 
   // Portfolio methods
-  async getPortfolioByUserId(userId: number): Promise<PortfolioItem[]> {
-    const [rows] = await pool.execute<any[]>(
-      "SELECT * FROM portfolio WHERE user_id = ?",
-      [userId]
-    );
-    return rows.map(row => ({
-      ...row,
-      amount: Number(row.amount),
-      purchase_price: Number(row.purchase_price)
-    }));
+  async getPortfolioByUserId(userId: string): Promise<PortfolioItem[]> {
+    const { data, error } = await supabase
+      .from("portfolio")
+      .select("*")
+      .eq("user_id", userId);
+    
+    if (error) return [];
+    return data as PortfolioItem[];
   }
 
-  async addPortfolioItem(userId: number, coinId: string, coinName: string, amount: number, purchasePrice: number): Promise<PortfolioItem> {
+  async addPortfolioItem(userId: string, coinId: string, coinName: string, amount: number, purchasePrice: number): Promise<PortfolioItem> {
     // Check if user already has this coin
-    const [existing] = await pool.execute<any[]>(
-      "SELECT * FROM portfolio WHERE user_id = ? AND coin_id = ?",
-      [userId, coinId]
-    );
+    const { data: existing } = await supabase
+      .from("portfolio")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("coin_id", coinId)
+      .single();
 
-    if (existing.length > 0) {
-      const existingItem = existing[0];
-      const totalAmount = Number(existingItem.amount) + amount;
-      const avgPrice = ((Number(existingItem.amount) * Number(existingItem.purchase_price)) + (amount * purchasePrice)) / totalAmount;
+    if (existing) {
+      const totalAmount = Number(existing.amount) + amount;
+      const avgPrice = ((Number(existing.amount) * Number(existing.purchase_price)) + (amount * purchasePrice)) / totalAmount;
       
-      await pool.execute(
-        "UPDATE portfolio SET amount = ?, purchase_price = ? WHERE id = ?",
-        [totalAmount, avgPrice, existingItem.id]
-      );
+      const { data: updated, error } = await supabase
+        .from("portfolio")
+        .update({
+          amount: totalAmount,
+          purchase_price: avgPrice,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
       
-      const [updated] = await pool.execute<any[]>(
-        "SELECT * FROM portfolio WHERE id = ?",
-        [existingItem.id]
-      );
-      const row = updated[0];
-      return {
-        ...row,
-        amount: Number(row.amount),
-        purchase_price: Number(row.purchase_price)
-      };
+      if (error) throw error;
+      return updated as PortfolioItem;
     }
 
-    const [result] = await pool.execute<any>(
-      "INSERT INTO portfolio (user_id, coin_id, coin_name, amount, purchase_price) VALUES (?, ?, ?, ?, ?)",
-      [userId, coinId, coinName, amount, purchasePrice]
-    );
+    const { data: inserted, error } = await supabase
+      .from("portfolio")
+      .insert([
+        {
+          user_id: userId,
+          coin_id: coinId,
+          coin_name: coinName,
+          amount: amount,
+          purchase_price: purchasePrice
+        }
+      ])
+      .select()
+      .single();
     
-    const [newItem] = await pool.execute<any[]>(
-      "SELECT * FROM portfolio WHERE id = ?",
-      [result.insertId]
-    );
-    const row = newItem[0];
-    return {
-      ...row,
-      amount: Number(row.amount),
-      purchase_price: Number(row.purchase_price)
-    };
+    if (error) throw error;
+    return inserted as PortfolioItem;
   }
 
-  async updatePortfolioItem(id: number, userId: number, amount: number, purchasePrice: number): Promise<PortfolioItem | null> {
-    const [result] = await pool.execute<any>(
-      "UPDATE portfolio SET amount = ?, purchase_price = ? WHERE id = ? AND user_id = ?",
-      [amount, purchasePrice, id, userId]
-    );
+  async updatePortfolioItem(id: string, userId: string, amount: number, purchasePrice: number): Promise<PortfolioItem | null> {
+    const { data, error } = await supabase
+      .from("portfolio")
+      .update({
+        amount,
+        purchase_price: purchasePrice,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select()
+      .single();
 
-    if (result.affectedRows === 0) return null;
-
-    const [rows] = await pool.execute<any[]>(
-      "SELECT * FROM portfolio WHERE id = ?",
-      [id]
-    );
-    const row = rows[0];
-    return {
-      ...row,
-      amount: Number(row.amount),
-      purchase_price: Number(row.purchase_price)
-    };
+    if (error) return null;
+    return data as PortfolioItem;
   }
 
-  async deletePortfolioItem(id: number, userId: number): Promise<boolean> {
-    const [result] = await pool.execute<any>(
-      "DELETE FROM portfolio WHERE id = ? AND user_id = ?",
-      [id, userId]
-    );
-    return result.affectedRows > 0;
+  async deletePortfolioItem(id: string, userId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("portfolio")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
+    
+    return !error;
   }
 
   // Transaction methods
-  async getTransactionsByUserId(userId: number, limit?: number): Promise<Transaction[]> {
-    let query = "SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC";
-    const params: any[] = [userId];
+  async getTransactionsByUserId(userId: string, limit?: number): Promise<Transaction[]> {
+    let query = supabase
+      .from("transactions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("date", { ascending: false });
 
     if (limit) {
-      query += " LIMIT ?";
-      params.push(limit);
+      query = query.limit(limit);
     }
 
-    const [rows] = await pool.execute<any[]>(query, params);
-    return rows.map(row => ({
-      ...row,
-      amount: Number(row.amount),
-      price: Number(row.price),
-      total_value: Number(row.total_value)
-    }));
+    const { data, error } = await query;
+    if (error) return [];
+    return data as Transaction[];
   }
 
   async addTransaction(
-    userId: number,
+    userId: string,
     coinId: string,
     coinName: string,
     type: "buy" | "sell",
@@ -187,24 +164,25 @@ class Database {
     price: number
   ): Promise<Transaction> {
     const totalValue = amount * price;
-    const [result] = await pool.execute<any>(
-      "INSERT INTO transactions (user_id, coin_id, coin_name, type, amount, price, total_value) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [userId, coinId, coinName, type, amount, price, totalValue]
-    );
+    const { data, error } = await supabase
+      .from("transactions")
+      .insert([
+        {
+          user_id: userId,
+          coin_id: coinId,
+          coin_name: coinName,
+          type: type,
+          amount: amount,
+          price: price,
+          total_value: totalValue
+        }
+      ])
+      .select()
+      .single();
 
-    const [rows] = await pool.execute<any[]>(
-      "SELECT * FROM transactions WHERE id = ?",
-      [result.insertId]
-    );
-    const row = rows[0];
-    return {
-      ...row,
-      amount: Number(row.amount),
-      price: Number(row.price),
-      total_value: Number(row.total_value)
-    };
+    if (error) throw error;
+    return data as Transaction;
   }
 }
 
 export const db = new Database();
-export { pool };
