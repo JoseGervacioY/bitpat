@@ -19,7 +19,7 @@ export async function GET() {
   } catch (error) {
     console.error("Portfolio fetch error:", error);
     return NextResponse.json(
-      { error: "An error occurred" },
+      { error: "An error occurred while fetching the portfolio" },
       { status: 500 }
     );
   }
@@ -31,43 +31,58 @@ export async function POST(request: NextRequest) {
 
     if (!session) {
       return NextResponse.json(
-        { error: "Not authenticated" },
+        { error: "Not authenticated. Please log in again." },
         { status: 401 }
       );
     }
 
-    const { coinId, coinName, amount, purchasePrice } = await request.json();
+    const { coinId, coinName, coinSymbol, amount, purchasePrice } = await request.json();
 
-    if (!coinId || !coinName || !amount || !purchasePrice) {
+    if (!coinId || !coinName || !coinSymbol || !amount || !purchasePrice) {
       return NextResponse.json(
-        { error: "All fields are required" },
+        { error: "All fields are required (coinId, coinName, coinSymbol, amount, purchasePrice)" },
         { status: 400 }
       );
     }
 
+    // 1. Add/Update portfolio item in portfolio_assets table
     const item = await db.addPortfolioItem(
       session.userId,
       coinId,
       coinName,
+      coinSymbol,
       parseFloat(amount),
       parseFloat(purchasePrice)
     );
 
-    // Add transaction record
-    await db.addTransaction(
-      session.userId,
-      coinId,
-      coinName,
-      "buy",
-      parseFloat(amount),
-      parseFloat(purchasePrice)
-    );
+    // 2. Add transaction record
+    try {
+      await db.addTransaction(
+        session.userId,
+        coinId,
+        coinName,
+        "buy",
+        parseFloat(amount),
+        parseFloat(purchasePrice)
+      );
+    } catch (transError) {
+      // We log but don't fail the whole request if the transaction log fails
+      console.error("Failed to log transaction:", transError);
+    }
 
-    return NextResponse.json({ success: true, item });
-  } catch (error) {
-    console.error("Portfolio add error:", error);
+    return NextResponse.json({ 
+      success: true, 
+      message: "Asset added successfully",
+      item 
+    });
+  } catch (error: any) {
+    console.error("Portfolio add error (API Route):", error);
+    
+    // Provide a more descriptive error if possible
+    const errorMessage = error.message || "An unexpected error occurred while adding the asset";
+    
     return NextResponse.json(
-      { error: "An error occurred" },
+      { error: errorMessage },
       { status: 500 }
     );
   }

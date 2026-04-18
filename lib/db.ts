@@ -8,10 +8,11 @@ export interface User {
 }
 
 export interface PortfolioItem {
-  id: string; // Changed to string for Postgres UUID/BigInt
+  id: string;
   user_id: string;
   coin_id: string;
   coin_name: string;
+  coin_symbol: string;
   amount: number;
   purchase_price: number;
   created_at: string;
@@ -54,21 +55,31 @@ class Database {
     return data as User;
   }
 
-  // Portfolio methods
+  // Portfolio methods (Updated to use portfolio_assets)
   async getPortfolioByUserId(userId: string): Promise<PortfolioItem[]> {
     const { data, error } = await supabase
-      .from("portfolio")
+      .from("portfolio_assets")
       .select("*")
       .eq("user_id", userId);
     
-    if (error) return [];
+    if (error) {
+      console.error("DB Error getPortfolioByUserId:", error);
+      return [];
+    }
     return data as PortfolioItem[];
   }
 
-  async addPortfolioItem(userId: string, coinId: string, coinName: string, amount: number, purchasePrice: number): Promise<PortfolioItem> {
+  async addPortfolioItem(
+    userId: string, 
+    coinId: string, 
+    coinName: string, 
+    coinSymbol: string,
+    amount: number, 
+    purchasePrice: number
+  ): Promise<PortfolioItem> {
     // Check if user already has this coin
     const { data: existing } = await supabase
-      .from("portfolio")
+      .from("portfolio_assets")
       .select("*")
       .eq("user_id", userId)
       .eq("coin_id", coinId)
@@ -79,7 +90,7 @@ class Database {
       const avgPrice = ((Number(existing.amount) * Number(existing.purchase_price)) + (amount * purchasePrice)) / totalAmount;
       
       const { data: updated, error } = await supabase
-        .from("portfolio")
+        .from("portfolio_assets")
         .update({
           amount: totalAmount,
           purchase_price: avgPrice,
@@ -89,17 +100,21 @@ class Database {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error("DB Error updating portfolio_assets:", error);
+        throw error;
+      }
       return updated as PortfolioItem;
     }
 
     const { data: inserted, error } = await supabase
-      .from("portfolio")
+      .from("portfolio_assets")
       .insert([
         {
           user_id: userId,
           coin_id: coinId,
           coin_name: coinName,
+          coin_symbol: coinSymbol,
           amount: amount,
           purchase_price: purchasePrice
         }
@@ -107,13 +122,16 @@ class Database {
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error("DB Error inserting into portfolio_assets:", error);
+      throw error;
+    }
     return inserted as PortfolioItem;
   }
 
   async updatePortfolioItem(id: string, userId: string, amount: number, purchasePrice: number): Promise<PortfolioItem | null> {
     const { data, error } = await supabase
-      .from("portfolio")
+      .from("portfolio_assets")
       .update({
         amount,
         purchase_price: purchasePrice,
@@ -124,17 +142,23 @@ class Database {
       .select()
       .single();
 
-    if (error) return null;
+    if (error) {
+      console.error("DB Error updatePortfolioItem:", error);
+      return null;
+    }
     return data as PortfolioItem;
   }
 
   async deletePortfolioItem(id: string, userId: string): Promise<boolean> {
     const { error } = await supabase
-      .from("portfolio")
+      .from("portfolio_assets")
       .delete()
       .eq("id", id)
       .eq("user_id", userId);
     
+    if (error) {
+      console.error("DB Error deletePortfolioItem:", error);
+    }
     return !error;
   }
 
@@ -151,7 +175,10 @@ class Database {
     }
 
     const { data, error } = await query;
-    if (error) return [];
+    if (error) {
+      console.error("DB Error getTransactionsByUserId:", error);
+      return [];
+    }
     return data as Transaction[];
   }
 
@@ -180,7 +207,10 @@ class Database {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("DB Error addTransaction:", error);
+      throw error;
+    }
     return data as Transaction;
   }
 }
