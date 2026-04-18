@@ -23,14 +23,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
-    if (!data.user) {
+    if (!data.user || !data.session) {
       return NextResponse.json(
         { error: "Invalid login credentials" },
         { status: 401 }
       );
     }
 
-    // 2. Get user name from profiles table
+    // 2. Get user name from profiles table for personalization
     const { data: profile } = await supabase
       .from("profiles")
       .select("name")
@@ -39,11 +39,14 @@ export async function POST(request: NextRequest) {
 
     const name = profile?.name || data.user.user_metadata?.full_name || "User";
 
-    // 3. Create local session
+    // 3. Create local session with tokens and expiration
     await createSession({
       userId: data.user.id,
       email: data.user.email!,
       name: name,
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresAt: data.session.expires_at, // Use the expiration from Supabase session
     });
 
     return NextResponse.json({
@@ -53,6 +56,11 @@ export async function POST(request: NextRequest) {
         name: name,
         email: data.user.email,
       },
+      session: {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at,
+      }
     });
   } catch (error) {
     console.error("Login error:", error);

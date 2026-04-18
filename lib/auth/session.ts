@@ -6,24 +6,30 @@ export interface SessionData {
   userId: string;
   email: string;
   name: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number; // Unix timestamp in seconds
 }
 
-// Simple session management using cookies
-// In production, use a proper session library like iron-session
-
+/**
+ * Persists session data in an HTTP-only cookie.
+ */
 export async function createSession(data: SessionData): Promise<void> {
   const cookieStore = await cookies();
   const sessionData = Buffer.from(JSON.stringify(data)).toString("base64");
   
   cookieStore.set(SESSION_COOKIE, sessionData, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: true,
+    sameSite: "none",
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: "/",
   });
 }
 
+/**
+ * Retrieves and parses the session data from the cookie.
+ */
 export async function getSession(): Promise<SessionData | null> {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(SESSION_COOKIE);
@@ -40,6 +46,9 @@ export async function getSession(): Promise<SessionData | null> {
   }
 }
 
+/**
+ * Destroys the session cookie.
+ */
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);

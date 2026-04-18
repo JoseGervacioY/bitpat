@@ -53,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (res.ok) {
+        // Ensure user state is updated before redirecting
         setUser(data.user);
         router.push("/home");
         return { success: true };
@@ -76,7 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (res.ok) {
+        // Ensure user state is updated before redirecting
         setUser(data.user);
+        
+        // Use window.location or a slight delay if router.push feels too fast for the state update
+        // but router.push is usually fine if state is set first.
         router.push("/home");
         return { success: true };
       } else {

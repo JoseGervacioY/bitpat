@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Sign up user in Supabase Auth
-    // Note: Email confirmation should be disabled in Supabase Dashboard (Auth > Settings)
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -36,7 +35,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    if (!data.user) {
+    if (!data.user || !data.session) {
+      if (!data.session) {
+        return NextResponse.json(
+          { error: "Registration successful, but session was not created. Please check if email confirmation is required." },
+          { status: 200 }
+        );
+      }
+      
       return NextResponse.json(
         { error: "Something went wrong during registration" },
         { status: 500 }
@@ -44,7 +50,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Insert into profiles table
-    // The user mentioned they already have this table linked to auth.users(id)
     const { error: profileError } = await supabase
       .from("profiles")
       .insert([
@@ -57,16 +62,16 @@ export async function POST(request: NextRequest) {
 
     if (profileError) {
       console.error("Error creating profile:", profileError);
-      // We don't necessarily want to fail registration if only profile fails, 
-      // but it's good to log it. In this case, I'll return success anyway 
-      // if the user was created.
     }
 
-    // 3. Create local session for compatibility with existing system
+    // 3. Create local session with tokens and expiration
     await createSession({
       userId: data.user.id,
       email: data.user.email!,
       name: name,
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresAt: data.session.expires_at,
     });
 
     return NextResponse.json({
@@ -76,6 +81,10 @@ export async function POST(request: NextRequest) {
         name: name,
         email: data.user.email,
       },
+      session: {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      }
     });
   } catch (error) {
     console.error("Registration error:", error);
