@@ -317,12 +317,12 @@ export default function HomePage() {
                   <span className="text-xs text-muted-foreground">{formatDate(news.date)}</span>
                 </div>
                 <CardTitle className="mt-2 line-clamp-2 text-lg">
-                  {t.news[news.titleKey as keyof typeof t.news]}
+                  {t.news[news.titleKey as keyof typeof t.news] as string}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="line-clamp-3 text-pretty">
-                  {t.news[news.descKey as keyof typeof t.news]}
+                  {t.news[news.descKey as keyof typeof t.news] as string}
                 </CardDescription>
                 <Button variant="link" className="mt-4 h-auto p-0 text-primary">
                   {t.home.readMore}
