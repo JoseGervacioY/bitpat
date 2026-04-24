@@ -161,7 +161,7 @@ export function PortfolioChart() {
           <>
             {/* Stats bar */}
             {stats && (
-              <div className="mb-4 grid grid-cols-4 gap-3">
+              <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="rounded-lg bg-muted/50 px-3 py-2">
                   <p className="text-xs text-muted-foreground">{t.dashboard.currentPrice}</p>
                   <p className="text-sm font-bold">

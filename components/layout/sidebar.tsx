@@ -29,9 +29,16 @@ import {
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ 
+  collapsed, 
+  onToggle, 
+  isMobileOpen = false, 
+  onCloseMobile 
+}: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const { user, logout } = useAuth();
@@ -63,8 +70,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-300 ease-in-out",
-          collapsed ? "w-20" : "w-64"
+          "fixed left-0 top-0 z-50 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-300 ease-in-out",
+          // Desktop behavior
+          !isMobileOpen && (collapsed ? "w-20" : "w-64"),
+          // Mobile behavior
+          "max-md:w-[70%] max-md:max-w-[300px]",
+          isMobileOpen ? "translate-x-0" : "max-md:-translate-x-full"
         )}
       >
         <div className="flex h-full flex-col">
@@ -88,12 +99,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </span>
           </div>
 
-          {/* Toggle button */}
+          {/* Toggle button - Hidden on mobile */}
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggle}
-            className="absolute -right-3 top-20 z-50 h-6 w-6 rounded-full border border-sidebar-border bg-sidebar shadow-md hover:bg-sidebar-accent"
+            className="absolute -right-3 top-20 z-50 h-6 w-6 rounded-full border border-sidebar-border bg-sidebar shadow-md hover:bg-sidebar-accent hidden md:flex"
           >
             {collapsed ? (
               <ChevronRight className="h-3 w-3" />
@@ -110,6 +121,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={onCloseMobile}
                   className={cn(
                     "flex items-center rounded-xl text-sm font-medium transition-all duration-200",
                     collapsed
