@@ -70,12 +70,12 @@ export default function CoinDetailPage({
 
   // Theme-aware colors
   const chartColors = {
-    text: "hsl(var(--foreground))",
-    axes: "hsl(var(--muted-foreground))",
-    grid: "hsl(var(--border))",
-    tooltipBg: "hsl(var(--card))",
-    tooltipBorder: "hsl(var(--border))",
-    tooltipText: "hsl(var(--foreground))",
+    text: isDark ? "#FFFFFF" : "#000000",
+    axes: isDark ? "#9CA3AF" : "#6B7280",
+    grid: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
+    tooltipBg: isDark ? "#1F2937" : "#FFFFFF",
+    tooltipBorder: isDark ? "#374151" : "#E5E7EB",
+    tooltipText: isDark ? "#FFFFFF" : "#000000",
   };
 
   const { id } = use(params);
