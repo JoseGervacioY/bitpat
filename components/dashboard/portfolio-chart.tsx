@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,19 @@ function CustomDot(props: {
 }
 
 export function PortfolioChart() {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  // Theme-aware colors
+  const chartColors = {
+    text: "hsl(var(--foreground))",
+    axes: "hsl(var(--muted-foreground))",
+    grid: "hsl(var(--border))",
+    tooltipBg: "hsl(var(--card))",
+    tooltipBorder: "hsl(var(--border))",
+    tooltipText: "hsl(var(--foreground))",
+  };
+
   const { t, language } = useLanguage();
   const dateLocale = language === "es" ? "es-ES" : "en-US";
   const [selectedRange, setSelectedRange] = useState(7);
@@ -128,7 +142,7 @@ export function PortfolioChart() {
         textAnchor="middle"
         fontSize={10}
         fontWeight={600}
-        fill="hsl(var(--foreground))"
+        fill={chartColors.text}
       >
         {formatted}
       </text>
@@ -219,18 +233,16 @@ export function PortfolioChart() {
                     />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} vertical={false} />
                 <XAxis
                   dataKey="time"
-                  tick={{ fontSize: 11 }}
-                  className="text-muted-foreground"
+                  tick={{ fontSize: 11, fill: chartColors.axes }}
                   tickLine={false}
                   axisLine={false}
                   interval="preserveStartEnd"
                 />
                 <YAxis
-                  tick={{ fontSize: 11 }}
-                  className="text-muted-foreground"
+                  tick={{ fontSize: 11, fill: chartColors.axes }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) =>
@@ -241,12 +253,14 @@ export function PortfolioChart() {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
+                    backgroundColor: chartColors.tooltipBg,
+                    border: `1px solid ${chartColors.tooltipBorder}`,
                     borderRadius: "8px",
                     fontSize: "13px",
+                    color: chartColors.tooltipText,
                   }}
-                  labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                  labelStyle={{ color: chartColors.tooltipText, fontWeight: 600 }}
+                  itemStyle={{ color: chartColors.tooltipText }}
                   formatter={(value: number) => [
                     `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                     t.market.price,

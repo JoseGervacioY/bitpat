@@ -2,6 +2,7 @@
 
 import { getLocalizedDescription } from "@/lib/utils/translation-utility";
 import { useState, useEffect, use } from "react";
+import { useTheme } from "next-themes";
 import useSWR from "swr";
 import Image from "next/image";
 import Link from "next/link";
@@ -64,6 +65,19 @@ export default function CoinDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  // Theme-aware colors
+  const chartColors = {
+    text: "hsl(var(--foreground))",
+    axes: "hsl(var(--muted-foreground))",
+    grid: "hsl(var(--border))",
+    tooltipBg: "hsl(var(--card))",
+    tooltipBorder: "hsl(var(--border))",
+    tooltipText: "hsl(var(--foreground))",
+  };
+
   const { id } = use(params);
   const { t, language } = useLanguage();
   const [selectedRange, setSelectedRange] = useState(7);
@@ -266,18 +280,16 @@ export default function CoinDetailPage({
                       />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} vertical={false} />
                   <XAxis
                     dataKey="time"
-                    tick={{ fontSize: 11 }}
-                    className="text-muted-foreground"
+                    tick={{ fontSize: 11, fill: chartColors.axes }}
                     tickLine={false}
                     axisLine={false}
                     interval="preserveStartEnd"
                   />
                   <YAxis
-                    tick={{ fontSize: 11 }}
-                    className="text-muted-foreground"
+                    tick={{ fontSize: 11, fill: chartColors.axes }}
                     tickLine={false}
                     axisLine={false}
                     domain={["auto", "auto"]}
@@ -288,12 +300,14 @@ export default function CoinDetailPage({
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
+                      backgroundColor: chartColors.tooltipBg,
+                      border: `1px solid ${chartColors.tooltipBorder}`,
                       borderRadius: "8px",
                       fontSize: "13px",
+                      color: chartColors.tooltipText,
                     }}
-                    labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                    labelStyle={{ color: chartColors.tooltipText, fontWeight: 600 }}
+                    itemStyle={{ color: chartColors.tooltipText }}
                     formatter={(value: number) => [
                       `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                       t.market.tooltipPrice,
@@ -388,7 +402,7 @@ export default function CoinDetailPage({
                             textAnchor="middle"
                             fontSize={10}
                             fontWeight={600}
-                            fill="hsl(var(--foreground))"
+                            fill={chartColors.text}
                           >
                             {formatted}
                           </text>
