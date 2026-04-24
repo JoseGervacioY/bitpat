@@ -27,7 +27,7 @@ const timeRanges = [
   { label: "3M", days: 90 },
 ];
 
-// Custom dot that shows only on first, last, min, max
+// Custom dot that shows only on first, last, min, max, start 
 function CustomDot(props: {
   cx?: number;
   cy?: number;
@@ -189,9 +189,8 @@ export function PortfolioChart() {
                 <div className="rounded-lg bg-muted/50 px-3 py-2">
                   <p className="text-xs text-muted-foreground">{t.dashboard.change}</p>
                   <p
-                    className={`text-sm font-bold ${
-                      isPositive ? "text-success" : "text-destructive"
-                    }`}
+                    className={`text-sm font-bold ${isPositive ? "text-success" : "text-destructive"
+                      }`}
                   >
                     {isPositive ? "+" : ""}
                     {stats.change.toFixed(2)}%
