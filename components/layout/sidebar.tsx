@@ -83,7 +83,7 @@ export function Sidebar({
           <div
             className={cn(
               "flex h-16 items-center border-b border-sidebar-border transition-all duration-300",
-              collapsed ? "justify-center px-2" : "gap-3 px-6"
+              (collapsed && !isMobileOpen) ? "justify-center px-2" : "gap-3 px-6"
             )}
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-primary/20">
@@ -92,7 +92,7 @@ export function Sidebar({
             <span
               className={cn(
                 "text-xl font-bold tracking-tight transition-all duration-300",
-                collapsed ? "hidden" : "block"
+                (collapsed && !isMobileOpen) ? "hidden" : "block"
               )}
             >
               BITPAT
@@ -124,7 +124,7 @@ export function Sidebar({
                   onClick={onCloseMobile}
                   className={cn(
                     "flex items-center rounded-xl text-sm font-medium transition-all duration-200",
-                    collapsed
+                    (collapsed && !isMobileOpen)
                       ? "justify-center p-3"
                       : "gap-3 px-4 py-3",
                     isActive
@@ -138,7 +138,7 @@ export function Sidebar({
                   <span
                     className={cn(
                       "transition-all duration-300",
-                      collapsed ? "hidden" : "block"
+                      (collapsed && !isMobileOpen) ? "hidden" : "block"
                     )}
                   >
                     {item.label}
@@ -146,7 +146,7 @@ export function Sidebar({
                 </Link>
               );
 
-              if (collapsed) {
+              if (collapsed && !isMobileOpen) {
                 return (
                   <Tooltip key={item.href}>
                     <TooltipTrigger asChild>{NavLink}</TooltipTrigger>
@@ -167,10 +167,10 @@ export function Sidebar({
             <div
               className={cn(
                 "flex items-center",
-                collapsed ? "flex-col gap-2" : "justify-between"
+                (collapsed && !isMobileOpen) ? "flex-col gap-2" : "justify-between"
               )}
             >
-              {collapsed ? (
+              {(collapsed && !isMobileOpen) ? (
                 <>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -204,7 +204,7 @@ export function Sidebar({
             {/* User info and logout */}
             {user && (
               <div className="space-y-2">
-                {!collapsed && (
+                {(!collapsed || isMobileOpen) && (
                   <div className="rounded-xl bg-sidebar-accent/50 p-3">
                     <p className="text-sm font-medium truncate">{user.name}</p>
                     <p className="text-xs text-sidebar-foreground/60 truncate">
@@ -212,7 +212,7 @@ export function Sidebar({
                     </p>
                   </div>
                 )}
-                {collapsed ? (
+                {(collapsed && !isMobileOpen) ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
